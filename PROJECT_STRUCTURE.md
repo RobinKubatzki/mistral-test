@@ -16,7 +16,7 @@ This document describes the architecture, directory structure, and technology st
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐  │
 │  │   Vue.js         │    │    PHP          │    │   MySQL     │  │
 │  │   Frontend       │◄──►│    Backend      │◄──►│   Database  │  │
-│  │   (Port: 8080)   │    │   (Port: 8000)  │    │   (Port: 3306)│  │
+│  │   (Port: 5173)   │    │   (Port: 8000)  │    │   (Port: 3306)│  │
 │  └─────────────────┘    └─────────────────┘    └─────────────┘  │
 │                                                                     │
 │  ┌─────────────────────────────────────────────────────────────┐│
@@ -139,9 +139,17 @@ checkin-tool/
 │   │
 │   └── schema.sql                     # Complete database schema
 │
-├── docker/                           # Docker configuration (optional)
+├── docker/                           # Docker configuration
 │   ├── docker-compose.yml             # Docker Compose configuration
-│   └── mysql/Dockerfile               # MySQL Dockerfile
+│   ├── nginx/                         # Nginx configuration
+│   │   ├── Dockerfile                 # Nginx Dockerfile
+│   │   └── conf.d/                    # Nginx config files
+│   │       └── app.conf               # Application config
+│   ├── php/                          # PHP configuration
+│   │   └── Dockerfile                 # PHP Dockerfile
+│   └── mysql/                         # MySQL configuration
+│       ├── Dockerfile                 # MySQL Dockerfile
+│       └── init.sql                   # Initial database setup
 │
 ├── .gitignore                        # Git ignore rules
 ├── README.md                         # Project README
@@ -185,6 +193,8 @@ checkin-tool/
 | [Node.js](https://nodejs.org/) | 20.x | JavaScript runtime | [Docs](https://nodejs.org/en/docs) |
 | [NPM](https://www.npmjs.com/) | 10.x | Package manager | [Docs](https://docs.npmjs.com/) |
 | [Composer](https://getcomposer.org/) | 2.x | PHP dependency manager | [Docs](https://getcomposer.org/doc/) |
+| [Docker](https://www.docker.com/) | 24.x | Containerization | [Docs](https://docs.docker.com/) |
+| [Docker Compose](https://docs.docker.com/compose/) | 2.x | Multi-container orchestration | [Docs](https://docs.docker.com/compose/) |
 | [Git](https://git-scm.com/) | 2.x | Version control | [Docs](https://git-scm.com/doc) |
 
 ---
@@ -275,47 +285,155 @@ http://localhost:8000/api/v1
 
 ---
 
-## Communication Flow
+## Docker Setup
 
-### Checkin Process
+### Prerequisites
 
+- [Docker](https://www.docker.com/get-docker) installed
+- [Docker Compose](https://docs.docker.com/compose/install/) installed
+- Your router allows local network access to Docker containers (most do by default)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/RobinKubatzki/mistral-test.git
+cd mistral-test
+
+# Start all services with Docker Compose
+docker-compose -f docker/docker-compose.yml up -d
+
+# Wait for containers to initialize (about 30-60 seconds)
+# Then access the application from any device on your network
 ```
-PC (Guest Selection) → Backend → Tablet (Signature Collection)
-     ↓                        ↓                        ↓
-Select Guest          Store Data              Collect Signature
-     ↓                        ↓                        ↓
-Send Guest ID      Update Status          Send Signature
-     ↓                        ↓                        ↓
-Wait for Signature  ← Confirm Checkin ← Receive Signature
-     ↓                        ↓                        ↓
-Checkin Complete   Checkin Complete    Clear Signature Pad
+
+### Accessing the Application on Your Network
+
+Once Docker Compose is running, you can access the application from **any device on your local network**:
+
+| Service | Local Access | Network Access |
+|---------|--------------|----------------|
+| Frontend (Vue.js) | http://localhost:5173 | http://[YOUR_LOCAL_IP]:5173 |
+| Backend API (PHP) | http://localhost:8000 | http://[YOUR_LOCAL_IP]:8000 |
+| phpMyAdmin | http://localhost:8080 | http://[YOUR_LOCAL_IP]:8080 |
+
+**To find your local IP address:**
+
+- **Windows**: Run `ipconfig` in Command Prompt and look for "IPv4 Address"
+- **Mac/Linux**: Run `ifconfig` or `ip a` in Terminal and look for your network interface
+
+**Example**: If your computer's local IP is `192.168.1.100`, then:
+- Frontend: http://192.168.1.100:5173
+- Backend API: http://192.168.1.100:8000
+- phpMyAdmin: http://192.168.1.100:8080
+
+### Docker Compose Configuration
+
+The `docker/docker-compose.yml` file sets up:
+
+```yaml
+version: '3.8'
+
+services:
+  # Nginx reverse proxy for frontend
+  frontend:
+    build: ./docker/nginx
+    ports:
+      - "5173:80"
+    volumes:
+      - ./frontend:/var/www/html
+    depends_on:
+      - backend
+    networks:
+      - checkin-network
+
+  # PHP backend
+  backend:
+    build: ./docker/php
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      - DB_HOST=mysql
+      - DB_DATABASE=checkin_tool
+      - DB_USERNAME=checkin_user
+      - DB_PASSWORD=checkin_password
+    depends_on:
+      - mysql
+    networks:
+      - checkin-network
+
+  # MySQL database
+  mysql:
+    build: ./docker/mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=checkin_tool
+      - MYSQL_USER=checkin_user
+      - MYSQL_PASSWORD=checkin_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - checkin-network
+
+  # phpMyAdmin for database management
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+    depends_on:
+      - mysql
+    networks:
+      - checkin-network
+
+volumes:
+  mysql_data:
+
+networks:
+  checkin-network:
+    driver: bridge
 ```
+
+### Docker Commands
+
+```bash
+# Start all services
+docker-compose -f docker/docker-compose.yml up -d
+
+# Stop all services
+docker-compose -f docker/docker-compose.yml down
+
+# Stop and remove containers, networks, and volumes
+docker-compose -f docker/docker-compose.yml down -v
+
+# View logs
+docker-compose -f docker/docker-compose.yml logs -f
+
+# View running containers
+docker-compose -f docker/docker-compose.yml ps
+
+# Restart services
+docker-compose -f docker/docker-compose.yml restart
+```
+
+### Environment Variables for Docker
+
+The Docker setup uses the following default credentials:
+
+- **MySQL**: Host: `mysql`, Database: `checkin_tool`, User: `checkin_user`, Password: `checkin_password`
+- **phpMyAdmin**: Accessible at port 8080, connects to MySQL service
 
 ---
 
-## Environment Variables
+## Manual Development Setup (Alternative)
 
-### Frontend (.env)
-
-```env
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-VITE_APP_TITLE=Checkin-Tool
-```
-
-### Backend (.env)
-
-```env
-APP_ENV=development
-DB_HOST=localhost
-DB_PORT=3306
-DB_DATABASE=checkin_tool
-DB_USERNAME=root
-DB_PASSWORD=
-```
-
----
-
-## Development Setup
+If you prefer not to use Docker, you can set up the application manually:
 
 ### Prerequisites
 
@@ -324,9 +442,7 @@ DB_PASSWORD=
 - MySQL 8.0+
 - Composer 2.x
 
-### Manual Setup
-
-#### Frontend
+### Frontend
 
 ```bash
 cd frontend
@@ -334,9 +450,9 @@ npm install
 npm run dev
 ```
 
-Access at: http://localhost:5173 (or port shown in terminal)
+Access at: http://localhost:5173
 
-#### Backend
+### Backend
 
 ```bash
 cd backend
@@ -346,7 +462,7 @@ php -S localhost:8000 -t public
 
 Access at: http://localhost:8000
 
-#### Database
+### Database
 
 ```bash
 # Create database
@@ -374,6 +490,45 @@ mysql -u root -p checkin_tool < database/schema.sql
 - `main` - Production ready code
 - `feature/*` - New features
 - `fix/*` - Bug fixes
+
+---
+
+## Network Access Notes
+
+### Firewall Considerations
+
+If you have a firewall enabled, you may need to allow the Docker ports:
+
+```bash
+# On Linux (ufw)
+sudo ufw allow 5173/tcp
+sudo ufw allow 8000/tcp
+sudo ufw allow 8080/tcp
+sudo ufw allow 3306/tcp
+
+# On Windows/macOS
+# Check your firewall settings to allow incoming connections on these ports
+```
+
+### Router Configuration
+
+Most modern routers automatically allow local network traffic. However, if you have issues:
+
+1. Ensure all devices are on the **same local network**
+2. Check that your router doesn't have **AP Isolation** enabled (this prevents devices from seeing each other)
+3. Verify that your computer's firewall allows incoming connections on the Docker ports
+
+### Testing Network Access
+
+From another device on your network, try:
+
+```bash
+# Test if the frontend is accessible
+curl http://[YOUR_LOCAL_IP]:5173
+
+# Test if the backend API is accessible
+curl http://[YOUR_LOCAL_IP]:8000/api/v1/guests
+```
 
 ---
 
