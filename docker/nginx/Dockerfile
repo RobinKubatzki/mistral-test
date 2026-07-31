@@ -4,7 +4,7 @@ FROM nginx:alpine
 COPY conf.d/app.conf /etc/nginx/conf.d/default.conf
 
 # Remove default nginx configuration
-RUN rm /etc/nginx/conf.d/default.conf
+RUN rm /etc/nginx/conf.d/default.conf 2>/dev/null || true
 
 # Install dependencies
 RUN apk add --no-cache curl

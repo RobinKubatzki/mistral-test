@@ -18,8 +18,15 @@ WORKDIR /var/www/html
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Install backend dependencies
-RUN cd /var/www/html && composer install --no-dev --optimize-autoloader
+# Copy composer files first
+COPY composer.json ./
+COPY composer.lock ./ 2>/dev/null || true
+
+# Install dependencies
+RUN composer install --no-dev --optimize-autoloader
+
+# Copy the rest of the application
+COPY . .
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html

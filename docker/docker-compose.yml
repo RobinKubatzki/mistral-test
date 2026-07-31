@@ -1,9 +1,9 @@
-version: '3.8'
-
 services:
   # Nginx for frontend
   frontend:
-    build: ./nginx
+    build: 
+      context: ..
+      dockerfile: docker/nginx/Dockerfile
     ports:
       - "5173:80"
     volumes:
@@ -15,12 +15,13 @@ services:
 
   # PHP backend
   backend:
-    build: ./php
+    build: 
+      context: ../backend
+      dockerfile: ../docker/php/Dockerfile
     ports:
       - "8000:8000"
     volumes:
       - ../backend:/var/www/html
-      - ./php/php.ini:/usr/local/etc/php/conf.d/custom.ini
     environment:
       - DB_HOST=mysql
       - DB_DATABASE=checkin_tool
@@ -33,7 +34,7 @@ services:
 
   # MySQL database
   mysql:
-    build: ./mysql
+    image: mysql:8.0
     ports:
       - "3306:3306"
     environment:
@@ -43,6 +44,7 @@ services:
       - MYSQL_PASSWORD=checkin_password
     volumes:
       - mysql_data:/var/lib/mysql
+      - ../docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - checkin-network
 
