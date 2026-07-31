@@ -1,4 +1,4 @@
-@import 'variables';
+@use 'variables' as *;
 
 // Global styles
 * {
@@ -37,7 +37,7 @@ a {
   transition: $transition;
 
   &:hover {
-    color: darken($primary, 10%);
+    color: color.adjust($primary, $lightness: -10%);
   }
 }
 
@@ -63,7 +63,7 @@ a {
   color: $white;
 
   &:hover:not(:disabled) {
-    background: darken($primary, 10%);
+    background: color.adjust($primary, $lightness: -10%);
   }
 }
 
@@ -72,7 +72,7 @@ a {
   color: $dark;
 
   &:hover:not(:disabled) {
-    background: darken($light-gray, 10%);
+    background: color.adjust($light-gray, $lightness: -10%);
   }
 }
 
@@ -81,7 +81,7 @@ a {
   color: $white;
 
   &:hover:not(:disabled) {
-    background: darken($danger, 10%);
+    background: color.adjust($danger, $lightness: -10%);
   }
 }
 
@@ -94,6 +94,8 @@ a {
   display: block;
   margin-bottom: $spacing-sm;
   font-weight: 500;
+  color: #555;
+  font-size: 14px;
 }
 
 .form-input,
@@ -167,17 +169,17 @@ a {
 
 .status-checked-in {
   background: rgba($success, 0.2);
-  color: darken($success, 20%);
+  color: color.adjust($success, $lightness: -20%);
 }
 
 .status-pending {
   background: rgba($warning, 0.2);
-  color: darken($warning, 30%);
+  color: color.adjust($warning, $lightness: -30%);
 }
 
 .status-in-progress {
   background: rgba($info, 0.2);
-  color: darken($info, 20%);
+  color: color.adjust($info, $lightness: -20%);
 }
 
 // Utility classes
@@ -209,5 +211,5 @@ a {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: darken($gray, 20%);
+  background: color.adjust($gray, $lightness: -20%);
 }
