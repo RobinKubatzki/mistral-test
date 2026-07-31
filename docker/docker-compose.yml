@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Nginx for frontend
+  frontend:
+    build: ./nginx
+    ports:
+      - "5173:80"
+    volumes:
+      - ../frontend:/var/www/html
+    depends_on:
+      - backend
+    networks:
+      - checkin-network
+
+  # PHP backend
+  backend:
+    build: ./php
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/var/www/html
+      - ./php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    environment:
+      - DB_HOST=mysql
+      - DB_DATABASE=checkin_tool
+      - DB_USERNAME=checkin_user
+      - DB_PASSWORD=checkin_password
+    depends_on:
+      - mysql
+    networks:
+      - checkin-network
+
+  # MySQL database
+  mysql:
+    build: ./mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=checkin_tool
+      - MYSQL_USER=checkin_user
+      - MYSQL_PASSWORD=checkin_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - checkin-network
+
+  # phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_PORT=3306
+    depends_on:
+      - mysql
+    networks:
+      - checkin-network
+
+volumes:
+  mysql_data:
+
+networks:
+  checkin-network:
+    driver: bridge
